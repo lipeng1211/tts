@@ -115,7 +115,8 @@ body {
 .form-group input:focus {
   outline: none;
   border-color: #4a90e2;
-  background-color: white;
+  background-color: #242731;
+  color: #ffffff;
   box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
 }
 

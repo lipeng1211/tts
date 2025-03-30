@@ -14,8 +14,9 @@ function LoginPage() {
     email: ''
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     
@@ -34,11 +35,38 @@ function LoginPage() {
       }
     }
 
-    // 模拟登录成功
     if (isLogin && formData.username && formData.password) {
-      // 这里可以添加实际的登录逻辑
-      console.log('登录成功:', formData)
-      navigate('/home')
+      try {
+        setLoading(true)
+        const response = await fetch('http://localhost:8080/loginV2', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': '*/*',
+          },
+          body: JSON.stringify({
+            username: formData.username,
+            password: formData.password
+          })
+        })
+
+        const data = await response.json()
+        
+        if (data.code === 200) {
+          // 保存 token 和 user 信息到 localStorage
+          localStorage.setItem('token', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          console.log('登录成功:', data)
+          navigate('/home')
+        } else {
+          setError(data.msg || '登录失败，请检查用户名和密码')
+        }
+      } catch (err) {
+        console.error('登录请求错误:', err)
+        setError('登录失败，请稍后再试')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -119,8 +147,8 @@ function LoginPage() {
 
             {error && <div className="error-message">{error}</div>}
 
-            <button type="submit" className="submit-btn">
-              {isLogin ? '登录' : '注册'}
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? '登录中...' : (isLogin ? '登录' : '注册')}
             </button>
 
             <div className="form-footer">

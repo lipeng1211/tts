@@ -9,6 +9,12 @@ const Home: React.FC = () => {
   const [targetLanguage, setTargetLanguage] = useState('英语')
   const [voiceType, setVoiceType] = useState('火锅')
 
+  // 用户信息状态
+  const [userData, setUserData] = useState<any>(null)
+  // 添加计时相关状态
+  const [timer, setTimer] = useState<number>(0)
+  const [timerInterval, setTimerInterval] = useState<ReturnType<typeof setTimeout> | null>(null)
+
   // 语音转换状态
   const [isRecording, setIsRecording] = useState(false)
   const [translatedText, setTranslatedText] = useState('')
@@ -1156,6 +1162,9 @@ const Home: React.FC = () => {
       // 如果正在播放，先停止播放
       stopSpeaking();
       
+      // 开始计时
+      startTimer();
+      
       // 重置时间戳和文本
       lastTimestampRef.current = 0;
       setLastRecognitionTimestamp(0);
@@ -1180,6 +1189,7 @@ const Home: React.FC = () => {
             console.error('开始识别出错:', error);
             setStatus('启动识别失败');
             setIsRecording(false);
+            stopTimer(); // 停止计时
           }
         );
       } else {
@@ -1189,11 +1199,15 @@ const Home: React.FC = () => {
       console.error('开始录音出错:', error);
       setStatus('开始录音失败');
       setIsRecording(false);
+      stopTimer(); // 停止计时
     }
   };
 
   // 停止录音
   const stopRecording = () => {
+    // 停止计时
+    stopTimer();
+    
     if (recognizerRef.current && isRecording) {
       // 重置时间戳，防止下次录音时误追加
       setLastRecognitionTimestamp(0);
@@ -1235,6 +1249,57 @@ const Home: React.FC = () => {
     }
   };
 
+  // 添加计时功能
+  const startTimer = () => {
+    // 清除之前可能存在的计时器
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
+    
+    // 重置计时器
+    setTimer(0);
+    
+    // 创建新的计时器，每秒更新一次
+    const interval = setInterval(() => {
+      setTimer(prevTimer => {
+        const newTime = prevTimer + 1;
+        
+        // 更新用户剩余时长
+        if (userData && userData.time > 0) {
+          // 每60秒减少1分钟的剩余时长
+          if (newTime % 60 === 0) {
+            const newUserData = {
+              ...userData,
+              time: Math.max(0, userData.time - 1) // 确保不会小于0
+            };
+            setUserData(newUserData);
+            
+            // 更新localStorage中的用户数据
+            localStorage.setItem('user', JSON.stringify(newUserData));
+            
+            // 如果剩余时长归零，停止录音
+            if (newUserData.time <= 0) {
+              stopRecording();
+              setStatus('剩余时长已用完，已停止录音');
+            }
+          }
+        }
+        
+        return newTime;
+      });
+    }, 1000);
+    
+    setTimerInterval(interval);
+  };
+  
+  // 停止计时
+  const stopTimer = () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+  };
+
   // 点击开始按钮的处理函数
   const handleStartClick = () => {
     if (isRecording) {
@@ -1247,6 +1312,8 @@ const Home: React.FC = () => {
   // 组件卸载时清理资源
   useEffect(() => {
     return () => {
+      stopTimer(); // 清理计时器
+      
       if (recognizerRef.current) {
         recognizerRef.current.close();
       }
@@ -1469,6 +1536,20 @@ const Home: React.FC = () => {
     }
   };
 
+  // 获取用户信息
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        setUserData(parsedUser)
+        console.log('已加载用户信息:', parsedUser)
+      }
+    } catch (error) {
+      console.error('读取用户信息失败:', error)
+    }
+  }, [])
+
   return (
     <div className="tts-container">
       <div className="tts-content">
@@ -1476,12 +1557,20 @@ const Home: React.FC = () => {
           <h2>账号信息</h2>
           <div className="info-item">
             <span className="info-label">登录账号：</span>
-            <span className="info-value">1888888888</span>
+            <span className="info-value">{userData?.userName || '未登录'}</span>
           </div>
           <div className="info-item">
-            <span className="info-label">剩余金额：</span>
-            <span className="info-value amount">6378.5 元</span>
+            <span className="info-label">剩余时长：</span>
+            <span className="info-value amount">{userData?.time || 0} 分钟</span>
           </div>
+          {isRecording && (
+            <div className="info-item timer">
+              <span className="info-label">已用时间：</span>
+              <span className="info-value timer-value">
+                {Math.floor(timer / 60)}分{timer % 60}秒
+              </span>
+            </div>
+          )}
           <div className="divider"></div>
         </section>
 
