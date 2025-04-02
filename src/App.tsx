@@ -38,7 +38,7 @@ function LoginPage() {
     if (isLogin && formData.username && formData.password) {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8080/loginV2', {
+        const response = await fetch('/api/loginV2', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -60,10 +60,16 @@ function LoginPage() {
           navigate('/home')
         } else {
           setError(data.msg || '登录失败，请检查用户名和密码')
+          // 清除可能存在的旧数据
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
         }
       } catch (err) {
         console.error('登录请求错误:', err)
         setError('登录失败，请稍后再试')
+        // 清除可能存在的旧数据
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
       } finally {
         setLoading(false)
       }
