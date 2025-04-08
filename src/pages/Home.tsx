@@ -23,36 +23,36 @@ const Home: React.FC = () => {
 
   // 使用ref跟踪当前翻译文本，避免异步更新问题
   const translatedTextRef = useRef<string>('');
-  
+
   // 使用ref跟踪最后识别时间戳
   const lastTimestampRef = useRef<number>(0);
-  
+
   // 添加一个变量来存储完整的翻译结果
   const completeTranslationRef = useRef<string>('');
-  
+
   // 添加一个标志来跟踪是否正在播放语音
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const isPlayingRef = useRef<boolean>(false);
-  
+
   // Speech SDK 相关状态
   const [recognizedText, setRecognizedText] = useState('')
-  
+
   // 添加语音队列状态
   const speechQueueRef = useRef<string[]>([]);
   const [isSpeechQueueProcessing, setIsSpeechQueueProcessing] = useState<boolean>(false);
-  
+
   // WebSocket 和音频相关引用
   const audioContextRef = useRef<AudioContext | null>(null)
-  
+
   // Speech SDK 相关引用
   const recognizerRef = useRef<speechsdk.TranslationRecognizer | null>(null)
   const synthesizerRef = useRef<speechsdk.SpeechSynthesizer | null>(null)
   const speechConfigRef = useRef<speechsdk.SpeechConfig | null>(null)
-  
+
   // 使用新的认知服务配置
-  const region = 'westeurope'
-  const key = 'C4w7owYrsgOu2ta7iOwDfNui4x95Rg0m80a0rpE39QTOuMcCKg70JQQJ99BCAC5RqLJXJ3w3AAAYACOGy4xL'
-  
+  const region = 'eastus'
+  const key = 'AXjBCilwI1TvNlAI9HaY5J86yazg0LYSbMyMtHpShl16KbnfUvdcJQQJ99BCACYeBjFXJ3w3AAAYACOGZokI'
+
   // 在组件中添加语言映射对象，帮助管理众多语言
   const languageMap: Record<string, string> = {
     '英语': 'en-US',
@@ -93,7 +93,7 @@ const Home: React.FC = () => {
     'id-ID': 'id-ID',
     'hi-IN': 'hi-IN'
   };
-  
+
   // 首先定义讲述人和风格的类型和映射
 
   // 定义各语言的讲述人
@@ -325,7 +325,7 @@ const Home: React.FC = () => {
       { name: 'Duarte (男)', value: 'pt-PT-DuarteNeural', styles: ['通用'] }
     ]
   };
-  
+
   // 定义风格映射
   const styleMap: Record<string, string> = {
     '通用': 'general',
@@ -378,22 +378,22 @@ const Home: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<string>('通用');
   const [availableSpeakers, setAvailableSpeakers] = useState<{name: string, value: string, styles?: string[]}[]>([]);
   const [availableStyles, setAvailableStyles] = useState<string[]>(['通用']);
-  
+
   // 添加一个变量来跟踪上次朗读的文本
   const lastSpokenTextRef = useRef<string>('');
-  
+
   // 添加追加文本的工具函数，确保文本间有空格
   const appendWithSpace = (originalText: string, newText: string) => {
     if (!originalText) return newText;
     if (!newText) return originalText;
-    
+
     // 确保两个文本之间有且只有一个空格
     const trimmedOriginal = originalText.trimEnd();
     const trimmedNew = newText.trimStart();
-    
+
     return `${trimmedOriginal} ${trimmedNew}`;
   };
-  
+
   // 初始化语音服务配置
   const initSpeechServices = async () => {
     try {
@@ -426,68 +426,6 @@ const Home: React.FC = () => {
       // 设置语音合成语言和声音
       if (selectedSpeaker) {
         speechConfig.speechSynthesisVoiceName = selectedSpeaker;
-        
-        // 设置语音风格
-        if (selectedStyle && selectedStyle !== '通用') {
-          const styleValue = styleMap[selectedStyle] || 'general';
-          const langCode = languageMap[targetLanguage] || 'en-US';
-          const ssmlText = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${langCode}">
-            <voice name="${selectedSpeaker}">
-              <mstts:express-as style="${styleValue}">
-                ${translatedText}
-              </mstts:express-as>
-            </voice>
-          </speak>`;
-          
-          const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
-          synthesizerRef.current = synthesizer;
-          
-          synthesizerRef.current.speakSsmlAsync(
-            ssmlText,
-            result => {
-              if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
-                console.log('朗读完成');
-                setStatus('朗读已完成');
-                
-                // 如果之前在录音，则恢复识别
-                if (isRecording) {
-                  setTimeout(() => {
-                    if (isRecording) {
-                      console.log('恢复识别');
-                      initSpeechServices();
-                      if (recognizerRef.current) {
-                        try {
-                          recognizerRef.current.startContinuousRecognitionAsync();
-                          console.log('成功恢复识别');
-                        } catch (error) {
-                          console.error('恢复识别失败:', error);
-                        }
-                      }
-                    }
-                  }, 500); // 延迟一点恢复识别，避免可能的回声
-                }
-              } else {
-                console.error('语音合成错误:', result.errorDetails);
-                setStatus('朗读出错');
-              }
-            },
-            error => {
-              console.error('语音合成错误:', error);
-              setStatus('朗读出错');
-              
-              // 如果之前在录音，则恢复识别
-              if (isRecording && recognizerRef.current) {
-                initSpeechServices();
-                try {
-                  recognizerRef.current.startContinuousRecognitionAsync();
-                  console.log('成功恢复识别');
-                } catch (error) {
-                  console.error('恢复识别失败:', error);
-                }
-              }
-            }
-          );
-        }
       } else {
         // 如果没有选定讲述人，则使用默认讲述人
         const languageCode = languageMap[targetLanguage] || 'en-US';
@@ -516,6 +454,10 @@ const Home: React.FC = () => {
       
       speechConfigRef.current = speechConfig;
       
+      // 创建语音合成器
+      const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
+      synthesizerRef.current = synthesizer;
+      
       // 创建翻译配置
       const translationConfig = speechsdk.SpeechTranslationConfig.fromSubscription(key, region);
       translationConfig.speechRecognitionLanguage = fromLanguage;
@@ -533,18 +475,18 @@ const Home: React.FC = () => {
       // 处理识别结果
       translator.recognized = (_s, e) => {
         console.log('识别事件触发', e.result.reason);
-      
+
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech) {
           // 识别完成（一段话结束）
           const recognizedText = e.result.text;
           if (recognizedText.trim() !== '') {
             console.log('识别到完整的语音:', recognizedText);
-            
+
             // 更新临时识别文本
             if (tempRecognizedTextRef.current) {
               // 如果之前有临时文本，这是一个完整的段落，添加到播放队列
               setRecognizedText(tempRecognizedTextRef.current);
-              
+
               // 获取翻译结果
               const translatedResult = e.result.translations.get(simplifiedToLanguage) || '';
               if (translatedResult) {
@@ -553,18 +495,18 @@ const Home: React.FC = () => {
                 translatedTextRef.current = completeTranslationRef.current;
                 setTranslatedText(completeTranslationRef.current);
                 setTextInput(completeTranslationRef.current);
-                
+
                 // 添加到语音队列
                 if (!isPlayingRef.current) {
                   addToSpeechQueue(translatedResult);
                 }
               }
-              
+
               // 重置临时文本
               tempRecognizedTextRef.current = '';
             } else {
               setRecognizedText(recognizedText);
-              
+
               // 获取翻译结果
               const translatedResult = e.result.translations.get(simplifiedToLanguage) || '';
               if (translatedResult) {
@@ -573,7 +515,7 @@ const Home: React.FC = () => {
                 translatedTextRef.current = completeTranslationRef.current;
                 setTranslatedText(completeTranslationRef.current);
                 setTextInput(completeTranslationRef.current);
-                
+
                 // 添加到语音队列
                 if (!isPlayingRef.current) {
                   addToSpeechQueue(translatedResult);
@@ -588,7 +530,7 @@ const Home: React.FC = () => {
             if (recognizedText.trim() !== '') {
               // 累积识别的文本
               setRecognizedText(recognizedText);
-              
+
               // 处理翻译结果
               const translatedResult = e.result.translations.get(simplifiedToLanguage) || '';
               if (translatedResult) {
@@ -597,7 +539,7 @@ const Home: React.FC = () => {
                 translatedTextRef.current = completeTranslationRef.current;
                 setTranslatedText(completeTranslationRef.current);
                 setTextInput(completeTranslationRef.current);
-                
+
                 // 添加到语音队列
                 if (!isPlayingRef.current) {
                   addToSpeechQueue(translatedResult);
@@ -607,7 +549,7 @@ const Home: React.FC = () => {
           }
         }
       };
-      
+
       // 处理识别进度 - 实现实时逐字符翻译
       translator.recognizing = (_s, e) => {
         if (e.result.reason === speechsdk.ResultReason.RecognizingSpeech) {
@@ -616,7 +558,7 @@ const Home: React.FC = () => {
           if (partialText.trim() !== '') {
             tempRecognizedTextRef.current = partialText;
             setRecognizedText(partialText);
-            
+
             // 显示实时翻译结果，但不添加到播放队列
             const translatedResult = e.result.translations.get(simplifiedToLanguage) || '';
             if (translatedResult) {
@@ -628,12 +570,8 @@ const Home: React.FC = () => {
           }
         }
       };
-      
+
       recognizerRef.current = translator;
-      
-      // 创建语音合成器
-      const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
-      synthesizerRef.current = synthesizer;
       
       setStatus('语音服务已准备好');
     } catch (error) {
@@ -641,7 +579,7 @@ const Home: React.FC = () => {
       setStatus('初始化语音服务错误，请检查麦克风权限');
     }
   };
-  
+
   // 扩展朗读翻译后的文本功能，增加智能朗读控制
   // 删除 speakTranslatedText 函数
 
@@ -652,116 +590,161 @@ const Home: React.FC = () => {
     setIsPlaying(true);
     currentPlayingTextRef.current = text;
     console.log(`🎵 开始朗读文本: "${text}"`);
-    
-    try {
-      setStatus('正在朗读...');
-      
-      // 如果文本太长，可能需要截断或分段处理
-      const maxTextLength = 1000; // 设置最大文本长度
-      
-      // 如果文本长度超过最大值，只朗读最后部分
-      if (text.length > maxTextLength) {
-        console.log(`⚠️ 文本过长 (${text.length} 字符), 截断为最后 ${maxTextLength} 字符`);
-        text = text.substring(text.length - maxTextLength);
-      }
-      
-      // 如果正在录音，先暂停识别以避免回声
-      let wasRecording = false;
-      if (isRecording && recognizerRef.current) {
-        wasRecording = true;
-        console.log('🎤 暂时暂停识别以避免回声');
-        try {
-          recognizerRef.current.stopContinuousRecognitionAsync();
-          console.log('✅ 成功暂停识别');
-        } catch (error) {
-          console.error('❌ 暂停识别失败:', error);
+
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    const trySpeak = async () => {
+      try {
+        setStatus('正在朗读...');
+
+        // 如果文本太长，可能需要截断或分段处理
+        const maxTextLength = 1000; // 设置最大文本长度
+
+        // 如果文本长度超过最大值，只朗读最后部分
+        if (text.length > maxTextLength) {
+          console.log(`⚠️ 文本过长 (${text.length} 字符), 截断为最后 ${maxTextLength} 字符`);
+          text = text.substring(text.length - maxTextLength);
         }
-      }
-      
-      // 创建新的合成器
-      const speechConfig = speechsdk.SpeechConfig.fromSubscription(key, region);
-      
-      // 确保为目标语言选择正确的语音
-      const languageCode = languageMap[targetLanguage] || 'en-US';
-      console.log(`🌐 语音合成使用语言代码: ${languageCode}`);
-      
-      // 如果没有选择讲述人，选择默认讲述人
-      if (!selectedSpeaker) {
-        const speakers = speakersMap[languageCode] || [];
-        if (speakers.length > 0) {
-          const defaultSpeaker = gender === 'female' 
-            ? speakers.find(s => s.name.includes('女'))?.value || speakers[0].value 
-            : speakers.find(s => s.name.includes('男'))?.value || speakers[0].value;
-          
-          speechConfig.speechSynthesisVoiceName = defaultSpeaker;
-          console.log(`👤 使用默认讲述人: ${defaultSpeaker}`);
+
+        // 如果正在录音，先暂停识别以避免回声
+        let wasRecording = false;
+        if (isRecording && recognizerRef.current) {
+          wasRecording = true;
+          console.log('🎤 暂时暂停识别以避免回声');
+          try {
+            recognizerRef.current.stopContinuousRecognitionAsync();
+            console.log('✅ 成功暂停识别');
+          } catch (error) {
+            console.error('❌ 暂停识别失败:', error);
+          }
+        }
+
+        // 创建新的合成器
+        const speechConfig = speechsdk.SpeechConfig.fromSubscription(key, region);
+
+        // 确保为目标语言选择正确的语音
+        const languageCode = languageMap[targetLanguage] || 'en-US';
+        console.log(`🌐 语音合成使用语言代码: ${languageCode}`);
+
+        // 如果没有选择讲述人，选择默认讲述人
+        if (!selectedSpeaker) {
+          const speakers = speakersMap[languageCode] || [];
+          if (speakers.length > 0) {
+            const defaultSpeaker = gender === 'female'
+              ? speakers.find(s => s.name.includes('女'))?.value || speakers[0].value
+              : speakers.find(s => s.name.includes('男'))?.value || speakers[0].value;
+
+            speechConfig.speechSynthesisVoiceName = defaultSpeaker;
+            console.log(`👤 使用默认讲述人: ${defaultSpeaker}`);
+          } else {
+            speechConfig.speechSynthesisVoiceName = 'en-US-AriaNeural';
+            console.log('⚠️ 未找到目标语言的讲述人，使用英语默认讲述人');
+          }
         } else {
-          speechConfig.speechSynthesisVoiceName = 'en-US-AriaNeural';
-          console.log('⚠️ 未找到目标语言的讲述人，使用英语默认讲述人');
+          speechConfig.speechSynthesisVoiceName = selectedSpeaker;
+          console.log(`👤 使用选定讲述人: ${selectedSpeaker}`);
         }
-      } else {
-        speechConfig.speechSynthesisVoiceName = selectedSpeaker;
-        console.log(`👤 使用选定讲述人: ${selectedSpeaker}`);
-      }
-      
-      // 如果有选择风格，则使用SSML格式
-      if (selectedStyle && selectedStyle !== '通用') {
-        const styleValue = styleMap[selectedStyle] || 'general';
-        const langCode = languageMap[targetLanguage] || 'en-US';
-        const ssmlText = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${langCode}">
-          <voice name="${selectedSpeaker || speechConfig.speechSynthesisVoiceName}">
-            <mstts:express-as style="${styleValue}">
-              ${text}
-            </mstts:express-as>
-          </voice>
-        </speak>`;
-        
-        console.log('🎭 使用风格进行语音合成:', styleValue);
-        
-        const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
-        synthesizerRef.current = synthesizer;
-        
-        synthesizerRef.current.speakSsmlAsync(
-          ssmlText,
-          result => {
-            if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
-              console.log('朗读完成');
-              setStatus('朗读已完成');
-              
-              // 重置播放状态
-              isPlayingRef.current = false;
-              setIsPlaying(false);
-              currentPlayingTextRef.current = '';
-              
-              // 处理队列中的下一个文本
-              processSpeechQueue();
-              
-              // 如果之前在录音，则恢复识别
-              if (wasRecording) {
-                setTimeout(() => {
-                  if (isRecording) {
-                    console.log('恢复识别');
-                    initSpeechServices();
-                    if (recognizerRef.current) {
-                      try {
-                        recognizerRef.current.startContinuousRecognitionAsync();
-                        console.log('成功恢复识别');
-                      } catch (error) {
-                        console.error('恢复识别失败:', error);
+
+        // 设置连接超时和重试参数
+        speechConfig.setProperty("SpeechServiceConnection_Timeout", "10000");
+        speechConfig.setProperty("SpeechServiceConnection_RetryCount", "3");
+
+        // 如果有选择风格，则使用SSML格式
+        if (selectedStyle && selectedStyle !== '通用') {
+          const styleValue = styleMap[selectedStyle] || 'general';
+          const langCode = languageMap[targetLanguage] || 'en-US';
+          const ssmlText = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${langCode}">
+            <voice name="${selectedSpeaker || speechConfig.speechSynthesisVoiceName}">
+              <mstts:express-as style="${styleValue}">
+                ${text}
+              </mstts:express-as>
+            </voice>
+          </speak>`;
+
+          console.log('🎭 使用风格进行语音合成:', styleValue);
+
+          const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
+          synthesizerRef.current = synthesizer;
+
+          synthesizerRef.current.speakSsmlAsync(
+            ssmlText,
+            result => {
+              if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
+                console.log('朗读完成');
+                setStatus('朗读已完成');
+
+                // 重置播放状态
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+                currentPlayingTextRef.current = '';
+
+                // 处理队列中的下一个文本
+                processSpeechQueue();
+
+                // 如果之前在录音，则恢复识别
+                if (wasRecording) {
+                  setTimeout(() => {
+                    if (isRecording) {
+                      console.log('恢复识别');
+                      initSpeechServices();
+                      if (recognizerRef.current) {
+                        try {
+                          recognizerRef.current.startContinuousRecognitionAsync();
+                          console.log('成功恢复识别');
+                        } catch (error) {
+                          console.error('恢复识别失败:', error);
+                        }
                       }
                     }
+                  }, 500);
+                }
+              } else {
+                console.error('语音合成错误:', result.errorDetails);
+                setStatus(`朗读出错: ${result.errorDetails}`);
+
+                // 如果错误是连接问题，尝试重试
+                if (result.errorDetails && result.errorDetails.includes('Unable to contact server') && retryCount < maxRetries) {
+                  retryCount++;
+                  console.log(`重试朗读 (${retryCount}/${maxRetries})...`);
+                  setTimeout(trySpeak, 1000 * retryCount); // 指数退避重试
+                  return;
+                }
+
+                // 重置播放状态
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+                currentPlayingTextRef.current = '';
+
+                // 如果之前在录音，则恢复识别
+                if (wasRecording && recognizerRef.current) {
+                  initSpeechServices();
+                  try {
+                    recognizerRef.current.startContinuousRecognitionAsync();
+                    console.log('成功恢复识别');
+                  } catch (error) {
+                    console.error('恢复识别失败:', error);
                   }
-                }, 500);
+                }
               }
-            } else {
-              console.error('语音合成错误:', result.errorDetails);
-              setStatus(`朗读出错: ${result.errorDetails}`);
-              
+            },
+            (error: any) => {
+              console.error('语音合成错误:', error);
+              setStatus(`朗读出错: ${error.message || error}`);
+
+              // 如果错误是连接问题，尝试重试
+              if ((error.message || error).toString().includes('Unable to contact server') && retryCount < maxRetries) {
+                retryCount++;
+                console.log(`重试朗读 (${retryCount}/${maxRetries})...`);
+                setTimeout(trySpeak, 1000 * retryCount); // 指数退避重试
+                return;
+              }
+
               // 重置播放状态
               isPlayingRef.current = false;
               setIsPlaying(false);
               currentPlayingTextRef.current = '';
-              
+
               // 如果之前在录音，则恢复识别
               if (wasRecording && recognizerRef.current) {
                 initSpeechServices();
@@ -773,76 +756,92 @@ const Home: React.FC = () => {
                 }
               }
             }
-          },
-          error => {
-            console.error('语音合成错误:', error);
-            setStatus(`朗读出错: ${error}`);
-            
-            // 重置播放状态
-            isPlayingRef.current = false;
-            setIsPlaying(false);
-            currentPlayingTextRef.current = '';
-            
-            // 如果之前在录音，则恢复识别
-            if (wasRecording && recognizerRef.current) {
-              initSpeechServices();
-              try {
-                recognizerRef.current.startContinuousRecognitionAsync();
-                console.log('成功恢复识别');
-              } catch (error) {
-                console.error('恢复识别失败:', error);
-              }
-            }
-          }
-        );
-      } else {
-        // 如果是通用风格，使用普通文本
-        console.log('Using plain text for speech synthesis');
-        
-        const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
-        synthesizerRef.current = synthesizer;
-        
-        synthesizerRef.current.speakTextAsync(
-          text,
-          result => {
-            if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
-              console.log('朗读完成');
-              setStatus('朗读已完成');
-              
-              // 重置播放状态
-              isPlayingRef.current = false;
-              setIsPlaying(false);
-              currentPlayingTextRef.current = '';
-              
-              // 处理队列中的下一个文本
-              processSpeechQueue();
-              
-              // 如果之前在录音，则恢复识别
-              if (wasRecording) {
-                setTimeout(() => {
-                  if (isRecording) {
-                    console.log('恢复识别');
-                    initSpeechServices();
-                    if (recognizerRef.current) {
-                      try {
-                        recognizerRef.current.startContinuousRecognitionAsync();
-                        console.log('成功恢复识别');
-                      } catch (error) {
-                        console.error('恢复识别失败:', error);
+          );
+        } else {
+          // 如果是通用风格，使用普通文本
+          console.log('Using plain text for speech synthesis');
+
+          const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
+          synthesizerRef.current = synthesizer;
+
+          synthesizerRef.current.speakTextAsync(
+            text,
+            result => {
+              if (result.reason === speechsdk.ResultReason.SynthesizingAudioCompleted) {
+                console.log('朗读完成');
+                setStatus('朗读已完成');
+
+                // 重置播放状态
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+                currentPlayingTextRef.current = '';
+
+                // 处理队列中的下一个文本
+                processSpeechQueue();
+
+                // 如果之前在录音，则恢复识别
+                if (wasRecording) {
+                  setTimeout(() => {
+                    if (isRecording) {
+                      console.log('恢复识别');
+                      initSpeechServices();
+                      if (recognizerRef.current) {
+                        try {
+                          recognizerRef.current.startContinuousRecognitionAsync();
+                          console.log('成功恢复识别');
+                        } catch (error) {
+                          console.error('恢复识别失败:', error);
+                        }
                       }
                     }
+                  }, 500);
+                }
+              } else {
+                console.error('语音合成错误:', result.errorDetails);
+                setStatus(`朗读出错: ${result.errorDetails}`);
+
+                // 如果错误是连接问题，尝试重试
+                if (result.errorDetails && result.errorDetails.includes('Unable to contact server') && retryCount < maxRetries) {
+                  retryCount++;
+                  console.log(`重试朗读 (${retryCount}/${maxRetries})...`);
+                  setTimeout(trySpeak, 1000 * retryCount); // 指数退避重试
+                  return;
+                }
+
+                // 重置播放状态
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+                currentPlayingTextRef.current = '';
+
+                // 如果之前在录音，则恢复识别
+                if (wasRecording && recognizerRef.current) {
+                  initSpeechServices();
+                  try {
+                    recognizerRef.current.startContinuousRecognitionAsync();
+                    console.log('成功恢复识别');
+                  } catch (error) {
+                    console.error('恢复识别失败:', error);
                   }
-                }, 500);
+                }
               }
-            } else {
-              console.error('语音合成错误:', result.errorDetails);
-              setStatus(`朗读出错: ${result.errorDetails}`);
-              
+            },
+            (error: any) => {
+              console.error('语音合成错误:', error);
+              setStatus(`朗读出错: ${error.message || error}`);
+
+              // 如果错误是连接问题，尝试重试
+              if ((error.message || error).toString().includes('Unable to contact server') && retryCount < maxRetries) {
+                retryCount++;
+                console.log(`重试朗读 (${retryCount}/${maxRetries})...`);
+                setTimeout(trySpeak, 1000 * retryCount); // 指数退避重试
+                return;
+              }
+
               // 重置播放状态
               isPlayingRef.current = false;
               setIsPlaying(false);
               currentPlayingTextRef.current = '';
-              
+
               // 如果之前在录音，则恢复识别
               if (wasRecording && recognizerRef.current) {
                 initSpeechServices();
@@ -854,38 +853,29 @@ const Home: React.FC = () => {
                 }
               }
             }
-          },
-          error => {
-            console.error('语音合成错误:', error);
-            setStatus(`朗读出错: ${error}`);
-            
-            // 重置播放状态
-            isPlayingRef.current = false;
-            setIsPlaying(false);
-            currentPlayingTextRef.current = '';
-            
-            // 如果之前在录音，则恢复识别
-            if (wasRecording && recognizerRef.current) {
-              initSpeechServices();
-              try {
-                recognizerRef.current.startContinuousRecognitionAsync();
-                console.log('成功恢复识别');
-              } catch (error) {
-                console.error('恢复识别失败:', error);
-              }
-            }
-          }
-        );
+          );
+        }
+      } catch (error: any) {
+        console.error('朗读文本时发生错误:', error);
+        setStatus(`朗读出错: ${error.message || error}`);
+
+        // 如果错误是连接问题，尝试重试
+        if ((error.message || error).toString().includes('Unable to contact server') && retryCount < maxRetries) {
+          retryCount++;
+          console.log(`重试朗读 (${retryCount}/${maxRetries})...`);
+          setTimeout(trySpeak, 1000 * retryCount); // 指数退避重试
+          return;
+        }
+
+        // 重置播放状态
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        currentPlayingTextRef.current = '';
       }
-    } catch (error) {
-      console.error('朗读文本时发生错误:', error);
-      setStatus(`朗读出错: ${error}`);
-      
-      // 重置播放状态
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      currentPlayingTextRef.current = '';
-    }
+    };
+
+    // 开始第一次尝试
+    trySpeak();
   };
 
   // 停止当前语音播放
@@ -896,24 +886,24 @@ const Home: React.FC = () => {
         // 关闭合成器会触发其 close 方法，释放资源
         synthesizerRef.current.close();
         synthesizerRef.current = null;
-        
+
         // 重置播放状态
         isPlayingRef.current = false;
         setIsPlaying(false);
         setStatus('已停止朗读');
-        
+
         // 清空语音队列
         console.log(`🧹 清空语音队列，原有 ${speechQueueRef.current.length} 个待播放文本`);
         speechQueueRef.current = [];
         setIsSpeechQueueProcessing(false);
-        
+
         console.log('✅ 语音播放和队列已完全停止');
       } catch (error) {
         console.error('❌ 停止语音播放错误:', error);
       }
     } else {
       console.log('ℹ️ 没有活跃的语音合成器，无需停止');
-      
+
       // 以防万一，也清空队列
       if (speechQueueRef.current.length > 0) {
         console.log(`🧹 清空语音队列，原有 ${speechQueueRef.current.length} 个待播放文本`);
@@ -927,7 +917,9 @@ const Home: React.FC = () => {
   const startRecording = async () => {
     try {
       // 如果正在播放，先停止播放
-      stopSpeaking();
+      if (synthesizerRef.current) {
+        stopSpeaking();
+      }
       
       // 重置时间戳和文本
       lastTimestampRef.current = 0;
@@ -937,7 +929,7 @@ const Home: React.FC = () => {
       translatedTextRef.current = '';
       
       // 初始化语音服务
-      initSpeechServices();
+      await initSpeechServices();
       
       if (recognizerRef.current) {
         setIsRecording(true);
@@ -970,34 +962,34 @@ const Home: React.FC = () => {
   const stopRecording = () => {
     // 停止计时
     stopTimer();
-    
+
     if (recognizerRef.current && isRecording) {
       // 重置时间戳，防止下次录音时误追加
       lastTimestampRef.current = 0;
-      
+
       // 停止连续识别
       recognizerRef.current.stopContinuousRecognitionAsync(
         () => {
           console.log('停止连续识别');
           setStatus('已停止录音');
           setIsRecording(false);
-          
+
           // 保存当前识别的文本
           const currentRecognizedText = recognizedText;
           const currentTranslatedText = translatedText;
-          
+
           // 如果有识别到文本但没有翻译，可以尝试再次合成
           if (currentRecognizedText && !currentTranslatedText) {
             setStatus('尝试翻译最后识别到的文本...');
             // 这里可以添加手动翻译的逻辑，如有必要
           }
-          
+
           // 清理资源
           if (recognizerRef.current) {
             recognizerRef.current.close();
             recognizerRef.current = null;
           }
-          
+
           if (synthesizerRef.current) {
             synthesizerRef.current.close();
             synthesizerRef.current = null;
@@ -1018,15 +1010,15 @@ const Home: React.FC = () => {
     if (timerInterval) {
       clearInterval(timerInterval);
     }
-    
+
     // 重置计时器
     setTimer(0);
-    
+
     // 创建新的计时器，每秒更新一次
     const interval = setInterval(async () => {
       setTimer(prevTimer => {
         const newTime = prevTimer + 1;
-        
+
         // 每60秒减少1分钟的剩余时长并调用API
         if (newTime % 60 === 0) {
           // 调用更新时间的API
@@ -1056,7 +1048,7 @@ const Home: React.FC = () => {
                   };
                   setUserData(newUserData);
                   localStorage.setItem('user', JSON.stringify(newUserData));
-                  
+
                   // 如果剩余时长归零，停止录音
                   if (newUserData.time <= 0) {
                     stopRecording();
@@ -1084,14 +1076,14 @@ const Home: React.FC = () => {
           // 执行更新时间
           updateTime();
         }
-        
+
         return newTime;
       });
     }, 1000);
-    
+
     setTimerInterval(interval);
   };
-  
+
   // 停止计时
   const stopTimer = () => {
     if (timerInterval) {
@@ -1139,7 +1131,7 @@ const Home: React.FC = () => {
             setUserData(newUserData);
             localStorage.setItem('user', JSON.stringify(newUserData));
           }
-          
+
           // 开始录音和计时
           await startRecording();
           startTimer(); // 确保在开始录音后启动计时器
@@ -1166,7 +1158,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     return () => {
       stopTimer(); // 清理计时器
-      
+
       if (recognizerRef.current) {
         recognizerRef.current.close();
       }
@@ -1197,22 +1189,22 @@ const Home: React.FC = () => {
   useEffect(() => {
     const languageCode = languageMap[targetLanguage] || 'en-US';
     console.log(`语言变更: ${targetLanguage} -> ${languageCode}`);
-    
+
     const speakers = speakersMap[languageCode] || [];
     if (speakers.length === 0) {
       console.log(`警告: 未找到语言 ${languageCode} 的讲述人`);
       // 如果找不到该语言的讲述人，则尝试使用英语讲述人
       const englishSpeakers = speakersMap['en-US'] || [];
       setAvailableSpeakers(englishSpeakers);
-      
+
       if (englishSpeakers.length > 0) {
-        const defaultSpeaker = gender === 'female' 
-          ? englishSpeakers.find(s => s.name.includes('女') || s.name.includes('female'))?.value || englishSpeakers[0].value 
+        const defaultSpeaker = gender === 'female'
+          ? englishSpeakers.find(s => s.name.includes('女') || s.name.includes('female'))?.value || englishSpeakers[0].value
           : englishSpeakers.find(s => s.name.includes('男') || s.name.includes('male'))?.value || englishSpeakers[0].value;
-        
+
         console.log(`使用英语后备讲述人: ${defaultSpeaker}`);
         setSelectedSpeaker(defaultSpeaker);
-        
+
         const speakerStyles = englishSpeakers.find(s => s.value === defaultSpeaker)?.styles || ['通用'];
         setAvailableStyles(speakerStyles);
         setSelectedStyle(speakerStyles[0] || '通用');
@@ -1220,22 +1212,22 @@ const Home: React.FC = () => {
     } else {
       console.log(`找到 ${speakers.length} 个语言为 ${languageCode} 的讲述人`);
       setAvailableSpeakers(speakers);
-      
+
       // 设置默认讲述人，根据当前选择的性别
-      const genderFiltered = gender === 'female' 
+      const genderFiltered = gender === 'female'
         ? speakers.filter(s => s.name.includes('女'))
         : speakers.filter(s => s.name.includes('男'));
-      
+
       console.log(`基于性别过滤后找到 ${genderFiltered.length} 个讲述人`);
-      
+
       // 如果找到了与当前性别匹配的讲述人，使用第一个；否则，使用所有讲述人中的第一个
-      const defaultSpeaker = genderFiltered.length > 0 
-        ? genderFiltered[0].value 
+      const defaultSpeaker = genderFiltered.length > 0
+        ? genderFiltered[0].value
         : speakers[0].value;
-      
+
       console.log(`选择讲述人: ${defaultSpeaker}`);
       setSelectedSpeaker(defaultSpeaker);
-      
+
       // 设置该讲述人支持的风格
       const speakerStyles = speakers.find(s => s.value === defaultSpeaker)?.styles || ['通用'];
       setAvailableStyles(speakerStyles);
@@ -1271,7 +1263,7 @@ const Home: React.FC = () => {
     console.log(`[useEffect-translatedText] 调用，translatedText="${translatedText}"`);
     console.log(`[useEffect-translatedText] 当前textInput="${textInput}"`);
     console.log(`[useEffect-translatedText] 当前ref="${translatedTextRef.current}"`);
-    
+
     // 同步更新ref和textInput
     translatedTextRef.current = translatedText;
     setTextInput(translatedText);
@@ -1282,20 +1274,20 @@ const Home: React.FC = () => {
   const clearAll = () => {
     // 停止语音播放
     stopSpeaking();
-    
+
     // 清空语音队列
     speechQueueRef.current = [];
     setIsSpeechQueueProcessing(false);
-    
+
     // 清空所有文本框
     setTextInput('');
     setRecognizedText('');
     setTranslatedText('');
     translatedTextRef.current = '';
-    
+
     // 重置上次朗读文本
     lastSpokenTextRef.current = '';
-    
+
     // 更新状态
     setStatus('已清空所有内容');
   };
@@ -1303,34 +1295,34 @@ const Home: React.FC = () => {
   // 添加一个函数来比较文本，防止重复朗读
   const isTextDuplicate = (oldText: string, newText: string): boolean => {
     if (!oldText || !newText) return false;
-    
+
     // 完全相同的文本
     if (oldText === newText) return true;
-    
+
     // 新文本包含在旧文本中
     if (oldText.includes(newText)) return true;
-    
+
     // 旧文本包含在新文本中，且新文本只增加了少量字符
     if (newText.includes(oldText) && newText.length - oldText.length < 3) return true;
-    
+
     return false;
   };
 
   // 添加语音到队列并处理
   const addToSpeechQueue = (text: string) => {
     console.log(`➕ 添加文本到语音队列: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
-    
+
     // 如果当前正在播放，将新文本追加到当前播放的文本中
     if (isPlayingRef.current && currentPlayingTextRef.current) {
       console.log('🎵 当前正在播放，追加文本到当前播放');
       currentPlayingTextRef.current = appendWithSpace(currentPlayingTextRef.current, text);
       return;
     }
-    
+
     // 将文本添加到队列
     speechQueueRef.current.push(text);
     console.log(`📊 当前队列长度: ${speechQueueRef.current.length}`);
-    
+
     // 如果队列处理器未运行，则启动它
     if (!isSpeechQueueProcessing) {
       console.log('🚀 启动队列处理器');
@@ -1339,7 +1331,7 @@ const Home: React.FC = () => {
       console.log('ℹ️ 队列处理器已在运行，文本已添加到队列');
     }
   };
-  
+
   // 添加语音队列处理状态ref
   const isProcessingQueueRef = useRef(false)
 
@@ -1386,7 +1378,7 @@ const Home: React.FC = () => {
       console.log('🎵 准备播放文本:', text)
       await executeSpeakText(text)
       console.log('✅ 文本播放完成')
-      
+
       speechQueueRef.current.shift()
       console.log('📊 更新后队列状态:', {
         remainingItems: speechQueueRef.current.length,
@@ -1577,7 +1569,7 @@ const Home: React.FC = () => {
               </label>
             </div>
           </div>
-          
+
           <div className="setting-item">
             <span className="setting-label">讲述人</span>
             <div className="select-wrapper">
@@ -1662,7 +1654,7 @@ const Home: React.FC = () => {
               {isRecording ? '停止' : '开始'}
             </button>
             {!isRecording && (textInput || translatedTextRef.current) && (
-              <button 
+              <button
                 className={`speak-button ${isPlaying ? 'speaking' : ''}`}
                 onClick={() => {
                   if (isPlaying) {
@@ -1691,7 +1683,7 @@ const Home: React.FC = () => {
               </button>
             )}
             {(recognizedText || textInput) && (
-              <button 
+              <button
                 className="clear-button"
                 onClick={clearAll}
               >
@@ -1703,25 +1695,25 @@ const Home: React.FC = () => {
               </button>
             )}
             {!isRecording && (
-              <button 
+              <button
                 className="export-button"
                 onClick={() => {
                   // 获取当前文本
                   const currentText = translatedTextRef.current || textInput || translatedText || "";
-                  
+
                   // 创建文本文件
                   const blob = new Blob([currentText], { type: 'text/plain;charset=utf-8' });
                   const url = URL.createObjectURL(blob);
-                  
+
                   // 创建下载链接
                   const a = document.createElement('a');
                   a.href = url;
                   a.download = `translation_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.txt`;
-                  
+
                   // 触发下载
                   document.body.appendChild(a);
                   a.click();
-                  
+
                   // 清理
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
